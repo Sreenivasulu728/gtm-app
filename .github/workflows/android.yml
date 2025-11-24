@@ -15,48 +15,26 @@ jobs:
 
     - name: Install Ubuntu dependencies
       run: |
+        # OpenJDK 17 is required by the Android build tools
         sudo apt update
         sudo apt install "-y" python3-pip python3-setuptools git zip openjdk-17-jdk unzip wget libpython3-dev
 
     - name: Install Buildozer + Cython
       run: |
+        # Install buildozer and cython to user path
         pip install --user buildozer cython
+        # Add user's local bin to the PATH for subsequent steps
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install Android SDK (Clean & Correct)
+    - name: Build APK (Automatic Dependencies)
+      # Set necessary environment variables for buildozer
+      env:
+        # Define JAVA_HOME explicitly for the build process
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+        # Telling buildozer to accept licenses automatically for all downloads
+        ANDROID_SDK_ACCEPT_LICENSES: yes
       run: |
-        # Define the SDK root and set it for subsequent steps via GITHUB_ENV
-        echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
-        export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-
-        mkdir "-p" $ANDROID_SDK_ROOT/cmdline-tools
-        cd $ANDROID_SDK_ROOT/cmdline-tools
-
-        # Download and unzip the latest command-line tools
-        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip "-O" tools.zip
-        unzip tools.zip
-
-        # proper folder structure (required by new sdkmanager)
-        mkdir "-p" $ANDROID_SDK_ROOT/cmdline-tools/latest
-        mv cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
-
-        # Add the new sdkmanager to the PATH for this step and subsequent steps
-        echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
-
-        # Accept all licenses
-        yes | sdkmanager --licenses || true
-
-        # Install necessary packages
-        yes | sdkmanager "platform-tools"
-        yes | sdkmanager "platforms;android-33"
-        yes | sdkmanager "build-tools;34.0.0"
-        yes | sdkmanager "ndk;25.2.9519653"
-
-        # Explicitly install a build-tools version often needed by buildozer
-        yes | sdkmanager "build-tools;30.0.3" || true
-
-    - name: Build APK
-      # ANDROID_SDK_ROOT and PATH are already set via GITHUB_ENV/GITHUB_PATH
-      run: |
+        # Buildozer will automatically check for missing SDK/NDK/ANT
+        # and download them into its standard paths if not found.
+        # This resolves the "sdkmanager not found" error.
         buildozer android debug
