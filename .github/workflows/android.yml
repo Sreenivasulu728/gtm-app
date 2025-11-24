@@ -21,27 +21,26 @@ jobs:
     - name: Install Python tools
       run: |
         pip install --user buildozer cython
-        echo "$HOME/.local/bin" >> $GITHUB_PATH  # FIX buildozer command not found
+        echo "$HOME/.local/bin" >> $GITHUB_PATH   # FIX: buildozer command
 
-    - name: Install Android SDK
+    - name: Install Android SDK (ONLY stable versions)
       run: |
         mkdir -p $HOME/android-sdk/cmdline-tools
         cd $HOME/android-sdk/cmdline-tools
 
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
         unzip tools.zip
-
         mv cmdline-tools latest
 
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH
 
-        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        yes | sdkmanager --licenses
 
-        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-33"
-        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;36.0.0"
-        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "ndk;25.2.9519653"
+        yes | sdkmanager "platform-tools"
+        yes | sdkmanager "platforms;android-33"
+        yes | sdkmanager "build-tools;34.0.0"     # ✔ FIX: correct build-tools
+        yes | sdkmanager "ndk;25.2.9519653"
 
     - name: Build APK
       env:
@@ -51,9 +50,10 @@ jobs:
       run: |
         export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/.local/bin:$PATH
 
-        # Force Buildozer to use our SDK
+        # FIX: force Buildozer to use correct versions so it stops requesting 36.1.0
         echo "android.sdk_path = $HOME/android-sdk" >> buildozer.spec
         echo "android.ndk_path = $HOME/android-sdk/ndk/25.2.9519653" >> buildozer.spec
+        echo "android.build_tools_version = 34.0.0" >> buildozer.spec   # ✔ FIX: stops 36.1 errors
 
         buildozer -v android debug
 
