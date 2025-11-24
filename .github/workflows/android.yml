@@ -25,6 +25,34 @@ jobs:
         pip install --user buildozer cython
         # Add user's local bin to the PATH for subsequent steps
         echo "$HOME/.local/bin" >> $GITHUB_PATH
+    - name: Install Android SDK (Clean & Correct)
+      run: |
+        # Set ANDROID_SDK_ROOT to where buildozer expects it
+        export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+
+        mkdir "-p" $ANDROID_SDK_ROOT/cmdline-tools
+        cd $ANDROID_SDK_ROOT/cmdline-tools
+
+        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip "-O" tools.zip
+        unzip tools.zip
+
+        # proper folder structure
+        mkdir "-p" $ANDROID_SDK_ROOT/cmdline-tools/latest
+        mv cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
+
+        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
+
+        # Accept all licenses
+        yes | sdkmanager --licenses || true
+
+        # Install necessary packages
+        yes | sdkmanager "platform-tools"
+        yes | sdkmanager "platforms;android-33"
+        yes | sdkmanager "build-tools;34.0.0"
+        yes | sdkmanager "ndk;25.2.9519653"
+
+        # Explicitly install a build-tools version often needed by buildozer
+        yes | sdkmanager "build-tools;30.0.3" || true
 
     - name: Build APK (Automatic Dependencies)
       # Set necessary environment variables for buildozer
