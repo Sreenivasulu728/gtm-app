@@ -13,16 +13,29 @@ jobs:
     - name: Check out source code
       uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: sudo apt update && sudo apt install -y python3-pip python3-setuptools git zip openjdk-17-jdk
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y python3-pip python3-setuptools git zip openjdk-17-jdk libpython3-dev
 
-    - name: Install buildozer & Cython
-      run: pip install buildozer cython
+    - name: Install Python packages
+      run: pip install cython buildozer
 
-    - name: Install Android SDK/NDK (first run triggers download)
-      run: buildozer android debug || true
+    - name: Install Android SDK manually
+      run: |
+        mkdir -p $HOME/android-sdk
+        cd $HOME/android-sdk
+        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O sdk.zip
+        unzip sdk.zip -d cmdline-tools
+        mkdir -p cmdline-tools/latest
+        mv cmdline-tools/* cmdline-tools/latest || true
+        yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk --licenses
+        cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
     - name: Build APK
+      env:
+        ANDROIDSDK: $HOME/android-sdk
+        ANDROIDNDK: $HOME/android-sdk/ndk
       run: buildozer -v android debug
 
     - name: Upload APK
