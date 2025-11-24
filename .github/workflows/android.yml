@@ -19,7 +19,9 @@ jobs:
         sudo apt install -y python3-pip python3-setuptools git zip openjdk-17-jdk unzip wget libpython3-dev
 
     - name: Install Python tools
-      run: pip install buildozer cython
+      run: |
+        pip install --user buildozer cython
+        echo "$HOME/.local/bin" >> $GITHUB_PATH  # FIX buildozer command not found
 
     - name: Install Android SDK
       run: |
@@ -29,16 +31,13 @@ jobs:
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
         unzip tools.zip
 
-        # rename the folder
         mv cmdline-tools latest
 
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH
 
-        # accept licenses
         yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
 
-        # required packages
         yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
         yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-33"
         yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;36.0.0"
@@ -49,10 +48,13 @@ jobs:
         ANDROIDSDK: $HOME/android-sdk
         ANDROIDNDK: $HOME/android-sdk/ndk/25.2.9519653
         ANDROID_SDK_ROOT: $HOME/android-sdk
-        PATH: $HOME/android-sdk/cmdline-tools/latest/bin:$PATH
       run: |
+        export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/.local/bin:$PATH
+
+        # Force Buildozer to use our SDK
         echo "android.sdk_path = $HOME/android-sdk" >> buildozer.spec
         echo "android.ndk_path = $HOME/android-sdk/ndk/25.2.9519653" >> buildozer.spec
+
         buildozer -v android debug
 
     - name: Upload APK
