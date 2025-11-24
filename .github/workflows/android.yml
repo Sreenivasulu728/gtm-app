@@ -46,21 +46,17 @@ jobs:
         ANDROID_HOME: $HOME/android-sdk
         ANDROIDNDK: $HOME/android-sdk/ndk/25.2.9519653
         JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
-        PATH: $HOME/android-sdk/cmdline-tools/latest/bin:$HOME/.local/bin:$PATH
       run: |
+        export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/.local/bin:$PATH
+    
         # Remove old SDK to avoid conflicts
         rm -rf /home/runner/.buildozer/android/platform/android-sdk
-
+    
         # Update buildozer.spec paths
         echo "android.sdk_path = $HOME/android-sdk" >> buildozer.spec
         echo "android.ndk_path = $HOME/android-sdk/ndk/25.2.9519653" >> buildozer.spec
         echo "android.build_tools_version = 36.1.0" >> buildozer.spec
-
+    
         # Build APK
         buildozer -v android debug
 
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: gtm_app_apk
-        path: bin/*.apk
