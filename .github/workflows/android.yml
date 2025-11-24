@@ -23,22 +23,26 @@ jobs:
 
     - name: Install Android SDK
       run: |
-        # Make SDK folders
+        # Create required directory
         mkdir -p $HOME/android-sdk/cmdline-tools/latest
 
         cd $HOME/android-sdk/cmdline-tools
 
-        # Download cmdline-tools
+        # Download command line tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-        unzip tools.zip -d latest
+        
+        # Unzip INTO correct folder
+        unzip tools.zip -d latest/cmdline-tools
 
         export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH
+
+        # Add sdkmanager path to PATH
+        export PATH=$HOME/android-sdk/cmdline-tools/latest/cmdline-tools/bin:$PATH
 
         # Accept licenses
         yes | sdkmanager --licenses
 
-        # Install EXACT versions buildozer uses
+        # Install EXACT versions needed by buildozer
         sdkmanager "platform-tools" \
                    "platforms;android-33" \
                    "build-tools;36.1.0" \
@@ -50,7 +54,7 @@ jobs:
         ANDROIDNDK: $HOME/android-sdk/ndk/25.2.9519653
         ANDROID_SDK_ROOT: $HOME/android-sdk
       run: |
-        export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH
+        export PATH=$HOME/android-sdk/cmdline-tools/latest/cmdline-tools/bin:$PATH
         buildozer -v android debug
 
     - name: Upload APK
