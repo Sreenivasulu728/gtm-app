@@ -15,28 +15,33 @@ jobs:
 
     - name: Install Ubuntu dependencies
       run: |
-        # OpenJDK 17 is required by the Android build tools
         sudo apt update
         sudo apt install "-y" python3-pip python3-setuptools git zip openjdk-17-jdk unzip wget libpython3-dev
 
     - name: Install Buildozer + Cython
       run: |
-        # Install buildozer and cython to user path
         pip install --user buildozer cython
-        # Add user's local bin to the PATH for subsequent steps
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Set up Environment Variables
-      run: |
-        # Ensure licenses are accepted automatically for all buildozer commands
-        echo "ANDROID_SDK_ACCEPT_LICENSES=yes" >> $GITHUB_ENV
-        # Set JAVA_HOME explicitly for the build process
-        echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
-        # Set SDK root path if needed, though buildozer manages internally
-        echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
 
-    - name: Build APK (Automatic Dependencies)
-      # Environment variables are already set via GITHUB_ENV in the previous step
+    - name: Setup Android SDK, NDK, and Build Tools
+      # Use a dedicated GitHub action to install necessary Android components reliably
+      uses: android-actions/setup-android@v2
+      with:
+        api-level: 34
+        ndk: 25.2.9519653 # Matches version requested in previous logs (r25b)
+        build-tools: 34.0.0 # A common, stable build tools version
+        # Note: We install these versions *system-wide* where buildozer can find them.
+
+    - name: Build APK
       run: |
-        # Buildozer will now automatically accept licenses when downloading SDK/NDK/ANT
+        # Buildozer will now use the system-wide SDK/NDK installed by the action above.
+        # Set the environment variable to ensure automatic license acceptance is attempted
+        # within buildozer in case it requests a slightly different version.
+        export ANDROID_SDK_ACCEPT_LICENSES=yes
         buildozer android debug
