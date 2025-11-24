@@ -16,7 +16,7 @@ jobs:
     - name: Install Ubuntu dependencies
       run: |
         sudo apt update
-        sudo apt install -y python3-pip python3-setuptools git zip openjdk-17-jdk unzip wget libpython3-dev
+        sudo apt install "-y" python3-pip python3-setuptools git zip openjdk-17-jdk unzip wget libpython3-dev
 
     - name: Install Buildozer + Cython
       run: |
@@ -25,46 +25,36 @@ jobs:
 
     - name: Install Android SDK (Clean & Correct)
       run: |
-        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        # Set ANDROID_SDK_ROOT to where buildozer expects it
+        export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
 
-        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+        mkdir "-p" $ANDROID_SDK_ROOT/cmdline-tools
         cd $ANDROID_SDK_ROOT/cmdline-tools
 
-        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
+        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip "-O" tools.zip
         unzip tools.zip
 
         # proper folder structure
-        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
+        mkdir "-p" $ANDROID_SDK_ROOT/cmdline-tools/latest
         mv cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
 
         export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
 
-        yes | sdkmanager --licenses
+        # Accept all licenses
+        yes | sdkmanager --licenses || true
 
+        # Install necessary packages
         yes | sdkmanager "platform-tools"
         yes | sdkmanager "platforms;android-33"
         yes | sdkmanager "build-tools;34.0.0"
         yes | sdkmanager "ndk;25.2.9519653"
 
+        # Explicitly install a build-tools version often needed by buildozer
+        yes | sdkmanager "build-tools;30.0.3" || true
+
     - name: Build APK
+      # Ensure ANDROID_SDK_ROOT is correctly set for this step as well
       env:
-        ANDROID_SDK_ROOT: $HOME/android-sdk
-        ANDROIDSDK: $HOME/android-sdk
-        ANDROIDNDK: $HOME/android-sdk/ndk/25.2.9519653
+        ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
       run: |
-        export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/.local/bin:$PATH
-
-        # Delete Buildozer's broken internal SDK
-        rm -rf /home/runner/.buildozer/android/platform/android-sdk
-
-        echo "android.sdk_path = $HOME/android-sdk" >> buildozer.spec
-        echo "android.ndk_path = $HOME/android-sdk/ndk/25.2.9519653" >> buildozer.spec
-        echo "android.build_tools_version = 34.0.0" >> buildozer.spec
-
-        buildozer -v android debug
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: gtm_app_apk
-        path: bin/*.apk
+        buildozer android debug
