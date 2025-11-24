@@ -26,21 +26,17 @@ jobs:
         # Add user's local bin to the PATH for subsequent steps
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    # --- REMOVED: The manual "Install Android SDK (Clean & Correct)" step ---
-    # Buildozer will now handle the SDK/NDK installation internally
+    - name: Set up Environment Variables
+      run: |
+        # Ensure licenses are accepted automatically for all buildozer commands
+        echo "ANDROID_SDK_ACCEPT_LICENSES=yes" >> $GITHUB_ENV
+        # Set JAVA_HOME explicitly for the build process
+        echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+        # Set SDK root path if needed, though buildozer manages internally
+        echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
 
     - name: Build APK (Automatic Dependencies)
-      # Set necessary environment variables for buildozer
-      env:
-        # Define JAVA_HOME explicitly for the build process
-        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
-        # Telling buildozer to accept licenses automatically for all downloads
-        ANDROID_SDK_ACCEPT_LICENSES: yes
-        # Set ANDROID_SDK_ROOT just in case, though buildozer manages it internally
-        ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
+      # Environment variables are already set via GITHUB_ENV in the previous step
       run: |
-        # Buildozer will automatically check for missing SDK/NDK/ANT
-        # and download them into its standard paths if not found.
-        # This resolves the "sdkmanager not found" error by ensuring
-        # buildozer controls the installation path and structure.
+        # Buildozer will now automatically accept licenses when downloading SDK/NDK/ANT
         buildozer android debug
