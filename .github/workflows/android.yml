@@ -23,41 +23,40 @@ jobs:
         pip install --user buildozer cython
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install Android SDK Cleanly
+    - name: Install Android SDK
       run: |
         export ANDROID_SDK_ROOT=$HOME/android-sdk
+        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
+
         mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
         cd $ANDROID_SDK_ROOT/cmdline-tools
 
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
         unzip tools.zip
+        mkdir -p latest
+        mv cmdline-tools/* latest/
 
-        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
-        mv cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
-
-        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
-
+        # Accept licenses and install required packages
         yes | sdkmanager --licenses
-        yes | sdkmanager "platform-tools"
-        yes | sdkmanager "platforms;android-33"
-        yes | sdkmanager "build-tools;34.0.0"
-        yes | sdkmanager "ndk;25.2.9519653"
+        sdkmanager "platform-tools" "platforms;android-33" "build-tools;36.1.0" "ndk;25.2.9519653"
 
-    - name: Build APK (Guaranteed)
+    - name: Build APK
       env:
         ANDROID_SDK_ROOT: $HOME/android-sdk
-        ANDROIDSDK: $HOME/android-sdk
+        ANDROID_HOME: $HOME/android-sdk
         ANDROIDNDK: $HOME/android-sdk/ndk/25.2.9519653
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+        PATH: $HOME/android-sdk/cmdline-tools/latest/bin:$HOME/.local/bin:$PATH
       run: |
-        export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/.local/bin:$PATH
-
-        # 🔥 DELETE Buildozer internal SDK every build to avoid 36.1 errors
+        # Remove old SDK to avoid conflicts
         rm -rf /home/runner/.buildozer/android/platform/android-sdk
 
+        # Update buildozer.spec paths
         echo "android.sdk_path = $HOME/android-sdk" >> buildozer.spec
         echo "android.ndk_path = $HOME/android-sdk/ndk/25.2.9519653" >> buildozer.spec
-        echo "android.build_tools_version = 34.0.0" >> buildozer.spec
+        echo "android.build_tools_version = 36.1.0" >> buildozer.spec
 
+        # Build APK
         buildozer -v android debug
 
     - name: Upload APK
