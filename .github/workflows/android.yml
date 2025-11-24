@@ -25,34 +25,9 @@ jobs:
         pip install --user buildozer cython
         # Add user's local bin to the PATH for subsequent steps
         echo "$HOME/.local/bin" >> $GITHUB_PATH
-    - name: Install Android SDK (Clean & Correct)
-      run: |
-        # Set ANDROID_SDK_ROOT to where buildozer expects it
-        export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
 
-        mkdir "-p" $ANDROID_SDK_ROOT/cmdline-tools
-        cd $ANDROID_SDK_ROOT/cmdline-tools
-
-        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip "-O" tools.zip
-        unzip tools.zip
-
-        # proper folder structure
-        mkdir "-p" $ANDROID_SDK_ROOT/cmdline-tools/latest
-        mv cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
-
-        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
-
-        # Accept all licenses
-        yes | sdkmanager --licenses || true
-
-        # Install necessary packages
-        yes | sdkmanager "platform-tools"
-        yes | sdkmanager "platforms;android-33"
-        yes | sdkmanager "build-tools;34.0.0"
-        yes | sdkmanager "ndk;25.2.9519653"
-
-        # Explicitly install a build-tools version often needed by buildozer
-        yes | sdkmanager "build-tools;30.0.3" || true
+    # --- REMOVED: The manual "Install Android SDK (Clean & Correct)" step ---
+    # Buildozer will now handle the SDK/NDK installation internally
 
     - name: Build APK (Automatic Dependencies)
       # Set necessary environment variables for buildozer
@@ -61,8 +36,11 @@ jobs:
         JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
         # Telling buildozer to accept licenses automatically for all downloads
         ANDROID_SDK_ACCEPT_LICENSES: yes
+        # Set ANDROID_SDK_ROOT just in case, though buildozer manages it internally
+        ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
       run: |
         # Buildozer will automatically check for missing SDK/NDK/ANT
         # and download them into its standard paths if not found.
-        # This resolves the "sdkmanager not found" error.
+        # This resolves the "sdkmanager not found" error by ensuring
+        # buildozer controls the installation path and structure.
         buildozer android debug
