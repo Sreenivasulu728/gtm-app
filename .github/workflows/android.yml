@@ -10,33 +10,44 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Check out source code
+    - name: Checkout source code
       uses: actions/checkout@v4
 
-    - name: Install system dependencies
+    - name: Install Ubuntu dependencies
       run: |
         sudo apt update
-        sudo apt install -y python3-pip python3-setuptools git zip openjdk-17-jdk libpython3-dev
+        sudo apt install -y python3-pip python3-setuptools git zip openjdk-17-jdk unzip wget libpython3-dev
 
-    - name: Install Python packages
-      run: pip install cython buildozer
+    - name: Install Python tools
+      run: pip install buildozer cython
 
-    - name: Install Android SDK manually
+    - name: Install Android SDK + required packages
       run: |
-        mkdir -p $HOME/android-sdk
-        cd $HOME/android-sdk
-        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O sdk.zip
-        unzip sdk.zip -d cmdline-tools
-        mkdir -p cmdline-tools/latest
-        mv cmdline-tools/* cmdline-tools/latest || true
-        yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk --licenses
-        cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+        mkdir -p $HOME/android-sdk/cmdline-tools
+        cd $HOME/android-sdk/cmdline-tools
+
+        # Download latest commandline-tools for Linux
+        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
+        unzip tools.zip -d tools
+
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/tools/bin:$PATH
+
+        yes | $ANDROID_SDK_ROOT/cmdline-tools/tools/bin/sdkmanager --licenses
+        $ANDROID_SDK_ROOT/cmdline-tools/tools/bin/sdkmanager \
+          "platform-tools" \
+          "platforms;android-33" \
+          "build-tools;33.0.0" \
+          "ndk;25.2.9519653"
 
     - name: Build APK
       env:
         ANDROIDSDK: $HOME/android-sdk
-        ANDROIDNDK: $HOME/android-sdk/ndk
-      run: buildozer -v android debug
+        ANDROIDNDK: $HOME/android-sdk/ndk/25.2.9519653
+        ANDROID_SDK_ROOT: $HOME/android-sdk
+      run: |
+        export PATH=$ANDROIDSDK/cmdline-tools/tools/bin:$PATH
+        buildozer -v android debug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
