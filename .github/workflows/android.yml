@@ -11,7 +11,7 @@ jobs:
 
     steps:
     - name: Check out source code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Install dependencies
       run: sudo apt update && sudo apt install -y python3-pip python3-setuptools git zip openjdk-17-jdk
@@ -19,15 +19,14 @@ jobs:
     - name: Install buildozer & Cython
       run: pip install buildozer cython
 
-    - name: Install Android SDK/NDK
-      run: |
-        buildozer android debug
+    - name: Install Android SDK/NDK (first run triggers download)
+      run: buildozer android debug || true
 
     - name: Build APK
       run: buildozer -v android debug
 
     - name: Upload APK
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: gtm_app_apk
         path: bin/*.apk
