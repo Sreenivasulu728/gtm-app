@@ -15,6 +15,7 @@ jobs:
 
     - name: Install Ubuntu dependencies
       run: |
+        # OpenJDK 17 is required by the Android build tools
         sudo apt update
         sudo apt install "-y" python3-pip python3-setuptools git zip openjdk-17-jdk unzip wget libpython3-dev
 
@@ -24,24 +25,23 @@ jobs:
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
     - name: Set up Java
+      # Use a dedicated action to configure JAVA_HOME correctly
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Setup Android SDK, NDK, and Build Tools
+    - name: Setup Android SDK and Specific Build Tools
       # Use a dedicated GitHub action to install necessary Android components reliably
       uses: android-actions/setup-android@v2
       with:
         api-level: 34
-        ndk: 25.2.9519653 # Matches version requested in previous logs (r25b)
-        build-tools: 34.0.0 # A common, stable build tools version
-        # Note: We install these versions *system-wide* where buildozer can find them.
+        ndk: 25.2.9519653
+        # Explicitly install the specific build-tools version that was failing
+        build-tools: 36.1.0
 
     - name: Build APK
       run: |
-        # Buildozer will now use the system-wide SDK/NDK installed by the action above.
-        # Set the environment variable to ensure automatic license acceptance is attempted
-        # within buildozer in case it requests a slightly different version.
-        export ANDROID_SDK_ACCEPT_LICENSES=yes
+        # Environment variables are already set by the actions above.
+        # Buildozer will find all required components already installed.
         buildozer android debug
