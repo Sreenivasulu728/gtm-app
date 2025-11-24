@@ -21,24 +21,23 @@ jobs:
     - name: Install Python tools
       run: pip install buildozer cython
 
-    - name: Install Android SDK + required packages
+    - name: Install Android SDK (auto-detect folder)
       run: |
         mkdir -p $HOME/android-sdk/cmdline-tools
         cd $HOME/android-sdk/cmdline-tools
 
-        # Download latest commandline-tools for Linux
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-        unzip tools.zip -d tools
+        unzip tools.zip -d extracted
 
+        # FIND sdkmanager automatically
         export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/tools/bin:$PATH
+        SDKMANAGER_PATH=$(find $HOME/android-sdk/cmdline-tools -type f -name sdkmanager | head -n 1)
 
-        yes | $ANDROID_SDK_ROOT/cmdline-tools/tools/bin/sdkmanager --licenses
-        $ANDROID_SDK_ROOT/cmdline-tools/tools/bin/sdkmanager \
-          "platform-tools" \
-          "platforms;android-33" \
-          "build-tools;33.0.0" \
-          "ndk;25.2.9519653"
+        echo "Found sdkmanager at: $SDKMANAGER_PATH"
+        chmod +x $SDKMANAGER_PATH
+
+        yes | $SDKMANAGER_PATH --sdk_root=$ANDROID_SDK_ROOT --licenses
+        $SDKMANAGER_PATH --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.2" "ndk;25.2.9519653"
 
     - name: Build APK
       env:
@@ -46,7 +45,8 @@ jobs:
         ANDROIDNDK: $HOME/android-sdk/ndk/25.2.9519653
         ANDROID_SDK_ROOT: $HOME/android-sdk
       run: |
-        export PATH=$ANDROIDSDK/cmdline-tools/tools/bin:$PATH
+        # Add sdkmanager path to PATH
+        export PATH=$(dirname $(find $HOME/android-sdk -type f -name sdkmanager | head -n 1)):$PATH
         buildozer -v android debug
 
     - name: Upload APK
