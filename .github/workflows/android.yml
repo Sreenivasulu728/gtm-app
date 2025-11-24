@@ -21,17 +21,21 @@ jobs:
     - name: Install Python tools
       run: |
         pip install --user buildozer cython
-        echo "$HOME/.local/bin" >> $GITHUB_PATH   # FIX: buildozer command
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install Android SDK (ONLY stable versions)
+    - name: Install Android SDK (FIXED)
       run: |
         mkdir -p $HOME/android-sdk/cmdline-tools
         cd $HOME/android-sdk/cmdline-tools
 
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
         unzip tools.zip
-        mv cmdline-tools latest
 
+        # FIX 1: Correct folder name structure
+        mkdir -p $HOME/android-sdk/cmdline-tools/latest
+        mv cmdline-tools/* $HOME/android-sdk/cmdline-tools/latest/
+
+        # FIX 2: correct PATH + exports BEFORE running sdkmanager
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH
 
@@ -39,7 +43,7 @@ jobs:
 
         yes | sdkmanager "platform-tools"
         yes | sdkmanager "platforms;android-33"
-        yes | sdkmanager "build-tools;34.0.0"     # ✔ FIX: correct build-tools
+        yes | sdkmanager "build-tools;34.0.0"
         yes | sdkmanager "ndk;25.2.9519653"
 
     - name: Build APK
@@ -50,10 +54,9 @@ jobs:
       run: |
         export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/.local/bin:$PATH
 
-        # FIX: force Buildozer to use correct versions so it stops requesting 36.1.0
         echo "android.sdk_path = $HOME/android-sdk" >> buildozer.spec
         echo "android.ndk_path = $HOME/android-sdk/ndk/25.2.9519653" >> buildozer.spec
-        echo "android.build_tools_version = 34.0.0" >> buildozer.spec   # ✔ FIX: stops 36.1 errors
+        echo "android.build_tools_version = 34.0.0" >> buildozer.spec
 
         buildozer -v android debug
 
