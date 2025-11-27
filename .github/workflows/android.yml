@@ -17,30 +17,31 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y python3-pip python3-setuptools git zip openjdk-17-jdk unzip wget libpython3-dev
-        sudo apt-get install aidl 
 
     - name: Install Buildozer & Cython
       run: |
         pip install --user buildozer cython
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install Android SDK 
-      run: | 
-        export ANDROID_SDK_ROOT=$HOME/android-sdk 
-        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH 
-        
-        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools 
-        cd $ANDROID_SDK_ROOT/cmdline-tools 
-        
-        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip 
-        unzip tools.zip 
-        mkdir -p latest 
-        mv cmdline-tools/* latest/ 
-        
-        # Accept licenses and install required packages 
-        yes | sdkmanager --licenses 
-        sdkmanager "platform-tools" "platforms;android-33" "build-tools;29.0.0" "ndk;25.2.9519653"
-        mv build-tools;29.0.0 /home/runner/.buildozer/android/platform/android-sdk/
+    - name: Install Android SDK (Fix License Issue)
+      run: |
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+        cd $ANDROID_SDK_ROOT/cmdline-tools
+
+        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
+        unzip tools.zip
+        mkdir -p latest
+        mv cmdline-tools/* latest/
+
+        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
+
+        yes | sdkmanager --licenses
+        sdkmanager "platform-tools"
+        sdkmanager "platforms;android-29"
+        sdkmanager "build-tools;29.0.0"
+        sdkmanager "ndk;25.2.9519653"
+
     - name: Build APK
       env:
         ANDROID_SDK_ROOT: $HOME/android-sdk
@@ -50,15 +51,10 @@ jobs:
       run: |
         export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/.local/bin:$PATH
 
-        
-
-        # Overwrite buildozer.spec paths so buildozer doesn’t pick wrong SDK
-        sed -i "/android.sdk_path/d" buildozer.spec
-        sed -i "/android.ndk_path/d" buildozer.spec
-        sed -i "/android.build_tools_version/d" buildozer.spec
+        rm -rf ~/.buildozer/android/platform/android-sdk
 
         echo "android.sdk_path = $HOME/android-sdk" >> buildozer.spec
         echo "android.ndk_path = $HOME/android-sdk/ndk/25.2.9519653" >> buildozer.spec
-        echo "android.build_tools_version = 34.0.0" >> buildozer.spec
+        echo "android.build_tools_version = 29.0.0" >> buildozer.spec
 
         buildozer -v android debug
