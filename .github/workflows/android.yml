@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (GTM app — fixed p4a)
 
 on:
   workflow_dispatch:
@@ -8,13 +8,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install system dependencies
+    - name: Install system packages
       run: |
         sudo apt update
         sudo apt install -y python3-pip python3-setuptools git zip openjdk-17-jdk unzip wget libpython3-dev
@@ -23,17 +23,20 @@ jobs:
       run: |
         pip install --user --upgrade buildozer cython
         echo "$HOME/.local/bin" >> $GITHUB_PATH
+        # reload PATH for current step
+        export PATH=$HOME/.local/bin:$PATH
+        buildozer --version || true
 
-    - name: Install Android SDK + NDK (correct setup)
+    - name: Install Android cmdline-tools + SDK components
       run: |
+        set -e
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
 
-        # Download cmdline tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmd.zip
         unzip -q /tmp/cmd.zip -d $ANDROID_SDK_ROOT/cmdline-tools
 
-        # Move into proper layout
+        # ensure layout android-sdk/cmdline-tools/latest/bin/sdkmanager
         if [ -d "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" ]; then
           mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
         else
@@ -43,13 +46,35 @@ jobs:
 
         export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
 
-        yes | sdkmanager --licenses
-        sdkmanager "platform-tools"
-        sdkmanager "platforms;android-33"
-        sdkmanager "build-tools;33.0.2"
-        sdkmanager "ndk;25.2.9519653"
+        # Accept licenses first
+        yes | sdkmanager --licenses || true
 
-    - name: Configure buildozer.spec automatically
+        # Install stable components (known-working versions)
+        sdkmanager "platform-tools" || true
+        sdkmanager "platforms;android-33" || true
+        sdkmanager "build-tools;33.0.2" || true
+        sdkmanager "ndk;25.2.9519653" || true
+
+    - name: Clone python-for-android into buildozer platform (avoid p4a auto-download)
+      run: |
+        set -e
+        # Ensure buildozer platform dir exists
+        mkdir -p $GITHUB_WORKSPACE/.buildozer/android/platform
+        # If python-for-android folder already exists, keep it (but update)
+        if [ -d "$GITHUB_WORKSPACE/.buildozer/android/platform/python-for-android/.git" ]; then
+          echo "python-for-android already exists — pulling latest stable"
+          cd $GITHUB_WORKSPACE/.buildozer/android/platform/python-for-android
+          git fetch --all --tags
+          git checkout stable || true
+          git pull || true
+        else
+          # clone stable branch (single-branch)
+          git clone --depth 1 -b stable https://github.com/kivy/python-for-android.git \
+            $GITHUB_WORKSPACE/.buildozer/android/platform/python-for-android || \
+          git clone --depth 1 https://github.com/kivy/python-for-android.git $GITHUB_WORKSPACE/.buildozer/android/platform/python-for-android
+        fi
+
+    - name: Configure buildozer.spec keys (force correct SDK/NDK/API)
       run: |
         sed -i '/android.sdk_path/d' buildozer.spec || true
         sed -i '/android.ndk_path/d' buildozer.spec || true
@@ -61,22 +86,39 @@ jobs:
         echo "android.api = 33" >> buildozer.spec
         echo "android.build_tools_version = 33.0.2" >> buildozer.spec
 
-    - name: Build APK
+    - name: Debug (show important dirs & versions)
+      run: |
+        export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/.local/bin:$PATH
+        echo "== java == "; java -version || true
+        echo "== sdkmanager == "; which sdkmanager || true; sdkmanager --version || true
+        echo "== build-tools installed =="; ls -la $HOME/android-sdk/build-tools || true
+        echo "== python-for-android folder =="; ls -la $GITHUB_WORKSPACE/.buildozer/android/platform/python-for-android || true
+        echo "== buildozer.spec snippets =="; grep -E "android.sdk_path|android.ndk_path|android.api|android.build_tools_version" buildozer.spec || true
+
+    - name: Build APK (safe clean)
       env:
         ANDROID_SDK_ROOT: $HOME/android-sdk
         ANDROID_HOME: $HOME/android-sdk
         JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       run: |
+        set -e
         export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/.local/bin:$PATH
 
-        # Ensure python-for-android folder exists
-        mkdir -p $GITHUB_WORKSPACE/.buildozer/android/platform/python-for-android
-
-        # Remove only wrong internal android-sdk
+        # Remove only buildozer's internal android-sdk (so it doesn't override ours)
         rm -rf /home/runner/.buildozer/android/platform/android-sdk || true
 
-        # Build
-        buildozer android clean
+        # Ensure python-for-android dir exists (we cloned it above)
+        test -d $GITHUB_WORKSPACE/.buildozer/android/platform/python-for-android
+
+        # Clean and build
+        buildozer android clean || true
         buildozer -v android debug
 
-
+    - name: Upload APK artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: GTM-APK
+        path: |
+          bin/*.apk
+          bin/*.aab
