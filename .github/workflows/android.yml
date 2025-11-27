@@ -26,6 +26,7 @@ jobs:
     - name: Install Android SDK + Accept Licenses
       run: |
         export ANDROID_SDK_ROOT=$HOME/android-sdk
+        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
         mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
         cd $ANDROID_SDK_ROOT/cmdline-tools
 
@@ -41,7 +42,7 @@ jobs:
         # Stable versions (WORKING for buildozer)
         sdkmanager "platform-tools"
         sdkmanager "platforms;android-33"
-        sdkmanager "build-tools;34.0.0"
+        sdkmanager "build-tools;36.1.0"
         sdkmanager "ndk;25.2.9519653"
 
     - name: Build APK
