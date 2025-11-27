@@ -39,8 +39,8 @@ jobs:
         
         # Accept licenses and install required packages 
         yes | sdkmanager --licenses 
-        sdkmanager "platform-tools" "platforms;android-33" "build-tools;36.1.0" "ndk;25.2.9519653"
-
+        sdkmanager "platform-tools" "platforms;android-33" "build-tools;29.0.0" "ndk;25.2.9519653"
+        mv build-tools;29.0.0 /home/runner/.buildozer/android/platform/android-sdk/
     - name: Build APK
       env:
         ANDROID_SDK_ROOT: $HOME/android-sdk
