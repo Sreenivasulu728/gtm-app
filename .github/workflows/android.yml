@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
     - name: Checkout source code
@@ -20,48 +21,102 @@ jobs:
 
     - name: Install Buildozer & Cython
       run: |
-        pip install --user buildozer cython
+        pip install --user --upgrade buildozer cython
         echo "$HOME/.local/bin" >> $GITHUB_PATH
+        source $GITHUB_PATH || true
+        which buildozer || true
+        buildozer --version || true
 
-    - name: Install Android SDK (Correct)
+    - name: Install Android cmdline-tools + SDK (stable)
       run: |
+        set -e
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
 
-        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-        unzip tools.zip -d $ANDROID_SDK_ROOT/cmdline-tools
-        mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
+        # Download and correctly place cmdline-tools
+        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmd.zip
+        unzip -q /tmp/cmd.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+        # ensure exact layout android-sdk/cmdline-tools/latest/bin/sdkmanager
+        if [ -d "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" ]; then
+          mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
+        else
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
+          mv $ANDROID_SDK_ROOT/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/ || true
+        fi
 
         export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
 
-        yes | sdkmanager --licenses
-        sdkmanager "platform-tools"
-        sdkmanager "platforms;android-33"
-        sdkmanager "build-tools;33.0.2"
-        sdkmanager "ndk;25.2.9519653"
+        # Accept licenses first (must be before install)
+        yes | sdkmanager --licenses || true
 
-    - name: Fix Buildozer Paths
+        # Install known-good versions
+        sdkmanager "platform-tools" || true
+        sdkmanager "platforms;android-33" || true
+        sdkmanager "build-tools;33.0.2" || true
+        sdkmanager "ndk;25.2.9519653" || true
+
+    - name: Debug: show SDK / tools state
       run: |
-        sed -i '/android.sdk_path/d' buildozer.spec
-        sed -i '/android.ndk_path/d' buildozer.spec
-        sed -i '/android.api/d' buildozer.spec
-        sed -i '/android.build_tools_version/d' buildozer.spec
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH
+        echo "=== java & buildozer versions ==="
+        java -version || true
+        python3 -V
+        which sdkmanager || true
+        sdkmanager --version || true
+        echo "=== android-sdk dir ==="
+        ls -la $HOME/android-sdk || true
+        echo "=== cmdline-tools layout ==="
+        ls -la $HOME/android-sdk/cmdline-tools || true
+        echo "=== build-tools installed ==="
+        ls -la $HOME/android-sdk/build-tools || true
+        echo "=== buildozer.spec important lines ==="
+        grep -E "android.sdk|android.ndk|android.api|android.build_tools_version" buildozer.spec || true
+
+    - name: Fix buildozer.spec and environment
+      run: |
+        sed -i '/android.sdk_path/d' buildozer.spec || true
+        sed -i '/android.ndk_path/d' buildozer.spec || true
+        sed -i '/android.api/d' buildozer.spec || true
+        sed -i '/android.build_tools_version/d' buildozer.spec || true
 
         echo "android.sdk_path = $HOME/android-sdk" >> buildozer.spec
         echo "android.ndk_path = $HOME/android-sdk/ndk/25.2.9519653" >> buildozer.spec
         echo "android.api = 33" >> buildozer.spec
         echo "android.build_tools_version = 33.0.2" >> buildozer.spec
 
-    - name: Build APK
+    - name: Build APK (clean safe)
       env:
         ANDROID_SDK_ROOT: $HOME/android-sdk
         ANDROID_HOME: $HOME/android-sdk
         JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       run: |
+        set -e
         export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/.local/bin:$PATH
 
-        rm -rf /home/runner/.buildozer/android/platform/android-sdk
+        # Remove ONLY buildozer's internal android-sdk if it exists (so it won't override), but keep python-for-android
+        if [ -d "/home/runner/.buildozer/android/platform/android-sdk" ]; then
+          rm -rf /home/runner/.buildozer/android/platform/android-sdk
+        fi
+
+        # Ensure python-for-android folder exists (do NOT delete it)
         mkdir -p /home/runner/.buildozer/android/platform/python-for-android
 
-        buildozer android clean
+        # Show current contents for debugging
+        echo "Contents of .buildozer/android/platform before bootstrap:"
+        ls -la /home/runner/.buildozer/android/platform || true
+
+        # Clean (will rebuild p4a if needed)
+        buildozer android clean || true
+
+        # Build (verbose)
         buildozer -v android debug
+
+    - name: Upload APK artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-apk
+        path: |
+          bin/*.apk
+          bin/*.aab
