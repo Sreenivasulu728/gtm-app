@@ -13,32 +13,36 @@ jobs:
     - name: Checkout source code
       uses: actions/checkout@v4
 
-    - name: Install Ubuntu dependencies
+    - name: Install Dependencies
       run: |
         sudo apt update
         sudo apt install -y python3-pip python3-setuptools git zip openjdk-17-jdk unzip wget libpython3-dev
 
-    - name: Install Buildozer + Cython
+    - name: Install Buildozer & Cython
       run: |
         pip install --user buildozer cython
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install Android SDK
+    - name: Install Android SDK + Accept Licenses
       run: |
         export ANDROID_SDK_ROOT=$HOME/android-sdk
-        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
-
         mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
         cd $ANDROID_SDK_ROOT/cmdline-tools
 
+        # Download and configure command-line tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-        unzip tools.zip
-        mkdir -p latest
-        mv cmdline-tools/* latest/
+        unzip tools.zip -d cmdline-tools
+        mv cmdline-tools latest
 
-        # Accept licenses and install required packages
+        export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
+
         yes | sdkmanager --licenses
-        sdkmanager "platform-tools" "platforms;android-33" "build-tools;36.1.0" "ndk;25.2.9519653"
+
+        # Stable versions (WORKING for buildozer)
+        sdkmanager "platform-tools"
+        sdkmanager "platforms;android-33"
+        sdkmanager "build-tools;34.0.0"
+        sdkmanager "ndk;25.2.9519653"
 
     - name: Build APK
       env:
@@ -47,16 +51,17 @@ jobs:
         ANDROIDNDK: $HOME/android-sdk/ndk/25.2.9519653
         JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       run: |
-        export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/.local/bin:$PATH
-    
-        # Remove old SDK to avoid conflicts
+        export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/.local/bin:$PATH
+
         rm -rf /home/runner/.buildozer/android/platform/android-sdk
-    
-        # Update buildozer.spec paths
+
+        # Overwrite buildozer.spec paths so buildozer doesn’t pick wrong SDK
+        sed -i "/android.sdk_path/d" buildozer.spec
+        sed -i "/android.ndk_path/d" buildozer.spec
+        sed -i "/android.build_tools_version/d" buildozer.spec
+
         echo "android.sdk_path = $HOME/android-sdk" >> buildozer.spec
         echo "android.ndk_path = $HOME/android-sdk/ndk/25.2.9519653" >> buildozer.spec
-        echo "android.build_tools_version = 36.1.0" >> buildozer.spec
-    
-        # Build APK
-        buildozer -v android debug
+        echo "android.build_tools_version = 34.0.0" >> buildozer.spec
 
+        buildozer -v android debug
