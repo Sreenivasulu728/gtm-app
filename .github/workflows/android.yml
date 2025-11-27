@@ -51,13 +51,10 @@ jobs:
       run: |
         export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/.local/bin:$PATH
 
-        # DELETE Buildozer’s internal WRONG SDK (VERY IMPORTANT)
+        # DELETE ONLY WRONG SDK (not python-for-android)
         rm -rf /home/runner/.buildozer/android/platform/android-sdk
 
-        # DELETE old build-tools if Buildozer already created folders
-        rm -rf /home/runner/.buildozer/android/platform/build-tools
-
-        # Force buildozer to use our installed SDK
+        # Force correct SDK config
         sed -i '/android.sdk_path/d' buildozer.spec
         sed -i '/android.ndk_path/d' buildozer.spec
         sed -i '/android.build_tools_version/d' buildozer.spec
@@ -66,7 +63,13 @@ jobs:
         echo "android.ndk_path = $HOME/android-sdk/ndk/25.2.9519653" >> buildozer.spec
         echo "android.build_tools_version = 29.0.0" >> buildozer.spec
 
-        # Force clean build
+        # Ensure python-for-android exists
+        mkdir -p /home/runner/.buildozer/android/platform/python-for-android
+
+        # Bootstrap python-for-android
+        buildozer android p4a
+
+        # Clean previous builds
         buildozer android clean
 
         # Build APK
