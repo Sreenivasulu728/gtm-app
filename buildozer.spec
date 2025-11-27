@@ -17,3 +17,6 @@ version = 1.0
 [buildozer]
 log_level = 2
 warn_on_root = 1
+android.sdk_path = /home/runner/android-sdk
+android.accept_sdk_license = True
+
