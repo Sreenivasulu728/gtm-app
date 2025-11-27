@@ -23,55 +23,45 @@ jobs:
         pip install --user buildozer cython
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install Android SDK (Fix License Issue)
+    - name: Install Android SDK (Correct)
       run: |
         export ANDROID_SDK_ROOT=$HOME/android-sdk
         mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-        cd $ANDROID_SDK_ROOT/cmdline-tools
 
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-        unzip tools.zip
-        mkdir -p latest
-        mv cmdline-tools/* latest/
+        unzip tools.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+        mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest
 
         export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
 
         yes | sdkmanager --licenses
         sdkmanager "platform-tools"
-        sdkmanager "platforms;android-29"
-        sdkmanager "build-tools;29.0.0"
+        sdkmanager "platforms;android-33"
+        sdkmanager "build-tools;33.0.2"
         sdkmanager "ndk;25.2.9519653"
+
+    - name: Fix Buildozer Paths
+      run: |
+        sed -i '/android.sdk_path/d' buildozer.spec
+        sed -i '/android.ndk_path/d' buildozer.spec
+        sed -i '/android.api/d' buildozer.spec
+        sed -i '/android.build_tools_version/d' buildozer.spec
+
+        echo "android.sdk_path = $HOME/android-sdk" >> buildozer.spec
+        echo "android.ndk_path = $HOME/android-sdk/ndk/25.2.9519653" >> buildozer.spec
+        echo "android.api = 33" >> buildozer.spec
+        echo "android.build_tools_version = 33.0.2" >> buildozer.spec
 
     - name: Build APK
       env:
         ANDROID_SDK_ROOT: $HOME/android-sdk
         ANDROID_HOME: $HOME/android-sdk
-        ANDROIDNDK: $HOME/android-sdk/ndk/25.2.9519653
         JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       run: |
         export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/.local/bin:$PATH
 
-        # DELETE ONLY WRONG SDK (not python-for-android)
         rm -rf /home/runner/.buildozer/android/platform/android-sdk
-
-        # Force correct SDK config
-        sed -i '/android.sdk_path/d' buildozer.spec
-        sed -i '/android.ndk_path/d' buildozer.spec
-        sed -i '/android.build_tools_version/d' buildozer.spec
-
-        echo "android.sdk_path = $HOME/android-sdk" >> buildozer.spec
-        echo "android.ndk_path = $HOME/android-sdk/ndk/25.2.9519653" >> buildozer.spec
-        echo "android.build_tools_version = 29.0.0" >> buildozer.spec
-
-        # Ensure python-for-android exists
         mkdir -p /home/runner/.buildozer/android/platform/python-for-android
 
-        # Bootstrap python-for-android
-        buildozer android p4a
-
-        # Clean previous builds
         buildozer android clean
-
-        # Build APK
         buildozer -v android debug
-
