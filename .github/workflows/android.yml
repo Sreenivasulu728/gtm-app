@@ -69,18 +69,14 @@ jobs:
       run: |
         export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$HOME/.local/bin:$PATH
 
-        # Remove ONLY internal android-sdk (not p4a)
-        if [ -d "/home/runner/.buildozer/android/platform/android-sdk" ]; then
-          rm -rf /home/runner/.buildozer/android/platform/android-sdk
-        fi
+        # Ensure python-for-android folder exists
+        mkdir -p $GITHUB_WORKSPACE/.buildozer/android/platform/python-for-android
 
-        # Build APK
+        # Remove only wrong internal android-sdk
+        rm -rf /home/runner/.buildozer/android/platform/android-sdk || true
+
+        # Build
         buildozer android clean
         buildozer -v android debug
 
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: GTM-APK
-        path: bin/*.apk
 
